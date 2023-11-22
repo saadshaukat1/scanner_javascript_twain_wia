@@ -7,3 +7,7 @@
 - Extract NAPS2 Portable zip file in project (root) folder
 - npm i
 - npm run dev (to start server) port: 3031
+
+## Converted to C#
+- performs same functionality as node application and runs on port 3301
+
