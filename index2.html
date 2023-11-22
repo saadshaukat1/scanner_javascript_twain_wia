@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner App</title>
+</head>
+<body>
+    <h1>Scanner App</h1>
+    
+    <!-- Button to open the Scanner Settings UI -->
+    <button  onclick="openScannerUI()">Open Scanner Settings</button>
+    
+    <!-- Button to run the scanner -->
+    <button onclick="runScanner()">Run Scanner</button>
+
+    <!-- Display the scanned image in an iframe -->
+    <iframe id="scannedImageFrame" style="display: none;"></iframe>
+
+    <script>
+        // Function to open the Scanner Settings UI
+        function openScannerUI() {
+            fetch('http://localhost:3031/?ui=true', {
+                method: 'GET'
+            })
+            .then(response => {
+                if (response.status === 204) {
+                    console.log('Scanner UI opened successfully.');
+                } else {
+                    console.error('Failed to open Scanner UI.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Function to run the scanner
+        function runScanner() {
+            fetch('http://localhost:3031/?ui=false&scan=true', {
+                method: 'GET'
+            })
+            .then(response => {
+                if (response.status === 200) {
+                    console.log('Scanner started successfully.');
+                    // If scanning is successful, call the displayImage function
+                    fetch('http://localhost:3031/?document=true', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'image/jpeg' // Assuming the response will be an image
+                        }
+                    })
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const reader = new FileReader();
+                        reader.onload = function() {
+                            const dataUrl = reader.result;
+                            displayImage(dataUrl);
+                        };
+                        reader.readAsDataURL(blob);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                } else {
+                    console.error('Failed to start the scanner.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // Function to display the scanned image in the iframe
+        function displayImage(dataUrl) {
+            const iframe = document.getElementById('scannedImageFrame');
+            iframe.src = dataUrl;
+            iframe.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

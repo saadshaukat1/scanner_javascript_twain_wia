@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scanner App</title>
+  </head>
+  <body>
+    <h1>Scanner App</h1>
+    <button id="scan-btn">Scan</button>
+    <button id="settings-btn">Settings</button>
+    <br />
+    <br />
+    <iframe id="scan-image-frame" src="" style="display: none;" onload="resizeIframe()"></iframe>
+        <br />
+        <br />
+        <a id="download-link" href="" download>Download PDF</a>
+
+        <script>
+          const scanBtn = document.getElementById("scan-btn");
+          const settingsBtn = document.getElementById("settings-btn");
+          const scanImageFrame = document.getElementById("scan-image-frame");
+          const downloadLink = document.getElementById("download-link");
+
+          // Event listener for Scan button
+          scanBtn.addEventListener("click", () => {
+            fetch("http://localhost:3031/?ui=false&scan=true", {
+              method: "GET",
+              headers: {
+                "Content-Type": "image/jpeg",
+              },
+            })
+              .then((response) => response.blob())
+              .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                scanImageFrame.src = url;
+                scanImageFrame.style.display = "block";
+                
+              })
+              .catch((error) => console.error(error));
+          });
+
+          // Event listener for Settings button
+          settingsBtn.addEventListener("click", () => {
+            fetch("http://localhost:3031/?ui=true", {
+              method: "GET",
+            })
+              .then((response) => {
+                if (response.status === 204) {
+                  console.log("Scanner Settings UI opened successfully");
+                }
+              })
+              .catch((error) => console.error(error));
+          });
+
+          // Event listener for Download PDF link
+          downloadLink.addEventListener("click", () => {
+            fetch("http://localhost:3031/?document=true", {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/pdf",
+              },
+            })
+              .then((response) => response.blob())
+              .then((blob) => {
+                downloadLink.href = URL.createObjectURL(blob);
+              })
+              .catch((error) => console.error(error));
+          });
+
+          // Function to resize the contents of the iframe to fit its size
+          function resizeIframe() {
+            const iframe = document.getElementById("scan-image-frame");
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            const contents = iframeDoc.documentElement;
+            const height = Math.max(contents.scrollHeight, contents.offsetHeight, contents.clientHeight);
+            const width = Math.max(contents.scrollWidth, contents.offsetWidth, contents.clientWidth);
+            iframe.style.height = height + "px";
+            iframe.style.width = width + "px";
+          }
+        </script>
+      </body>    </html>
+
