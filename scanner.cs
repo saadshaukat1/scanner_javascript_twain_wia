@@ -114,6 +114,39 @@ namespace ScannerApp
                     response.StatusCode = 200;
                     response.OutputStream.Close();
                 }
+                // HTTP request is asking to run scanner and then return a PDF document
+                else if (ui == "false" && scan == "true" && document == "true")
+                {
+                    Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                    // Run batch script to open it minimized
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = "/c cd commands && start.bat",
+                        WindowStyle = ProcessWindowStyle.Minimized
+                    });
+
+                    // Wait for the scanner to finish before sending the PDF
+                    // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
+                    Task.Delay(TimeSpan.FromSeconds(5)).Wait();
+
+                    try
+                    {
+                        // Send the Output.pdf file from "/Output" folder
+                        byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
+                        response.ContentType = "application/pdf";
+                        response.StatusCode = 200;
+                        response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
+                        response.OutputStream.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine(ex.Message);
+                        response.StatusCode = 202;
+                        response.StatusDescription = "Process was interrupted, please try again";
+                        response.OutputStream.Close();
+                    }
+                }
             }
         }
     }
