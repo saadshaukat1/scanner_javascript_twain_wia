@@ -9,6 +9,8 @@ namespace ScannerApp
 {
     class Program
     {
+        private static bool isProcessRunning = false;
+        private static bool isSettingsUIOpen = false;
         static void Main(string[] args)
         {
             int PORT = 3031;
@@ -91,37 +93,45 @@ namespace ScannerApp
                     Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
 
                     // Run batch script to open it minimized
-                    Process process = new Process
+                    if (isProcessRunning)
                     {
-                        StartInfo = new ProcessStartInfo
+                        Process process = new Process
                         {
-                            FileName = "cmd.exe",
-                            Arguments = "/c cd commands && start.bat",
-                            WindowStyle = ProcessWindowStyle.Minimized
+                            StartInfo = new ProcessStartInfo
+                            {
+                                FileName = "cmd.exe",
+                                Arguments = "/c cd commands && start.bat",
+                                WindowStyle = ProcessWindowStyle.Minimized
+                            }
+                        };
+
+                        process.Start();
+
+                        // Wait for the process to exit
+                        process.WaitForExit();
+
+                        // Check the exit code
+                        if (process.ExitCode == 0)
+                        {
+                            Console.WriteLine("Batch file ran successfully.");
+                            Task.Delay(TimeSpan.FromSeconds(7)).Wait();
                         }
-                    };
-
-                    process.Start();
-
-                    // Wait for the process to exit
-                    process.WaitForExit();
-
-                    // Check the exit code
-                    if (process.ExitCode == 0)
-                    {
-                        Console.WriteLine("Batch file ran successfully.");
-                         Task.Delay(TimeSpan.FromSeconds(7)).Wait();
+                        else
+                        {
+                            Console.WriteLine("Batch file did not run successfully.");
+                            // Handle the error
+                        }
+                        isProcessRunning = false;
                     }
                     else
                     {
-                        Console.WriteLine("Batch file did not run successfully.");
-                        // Handle the error
+                        Console.WriteLine("A process is already running.");
                     }
 
                     // Wait for the scanner to finish before sending the PDF
                     // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
                    
-                    try
+                try
                     {
                         // Send the Output.pdf file from "/Output" folder
                         byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
@@ -130,7 +140,7 @@ namespace ScannerApp
                         response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
                         response.OutputStream.Close();
                     }
-                    catch (Exception ex)
+                catch (Exception ex)
                     {
                         Console.Error.WriteLine(ex.Message);
                         response.StatusCode = 202;
@@ -140,17 +150,28 @@ namespace ScannerApp
                 }
 
                 // HTTP request is asking to open the Scanner Settings UI
+              
                 else if (ui == "true")
                 {
-                    Console.WriteLine($"Scanner UI (Options)- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-                    // Run batch script to open it minimized
-                    Process.Start(new ProcessStartInfo
+                    if (!isSettingsUIOpen)
                     {
-                        FileName = "cmd.exe",
-                        Arguments = "/c cd commands && settings.bat",
-                        WindowStyle = ProcessWindowStyle.Minimized
-                    });
-                    response.StatusCode = 204;
+                        isSettingsUIOpen = true;
+
+                        Console.WriteLine($"Scanner UI (Options)- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                        // Run batch script to open it minimized
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "cmd.exe",
+                            Arguments = "/c cd commands && settings.bat",
+                            WindowStyle = ProcessWindowStyle.Minimized
+                        });
+                        response.StatusCode = 204;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Settings UI is already open.");
+                        response.StatusCode = 409; // Conflict
+                    }
                     response.OutputStream.Close();
                 }
 
@@ -158,8 +179,8 @@ namespace ScannerApp
                 {
                     response.StatusCode = 404;
                     Console.WriteLine($"Invalid Request -  {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                    response.OutputStream.Close();
                 }
-            }
 
                 // // HTTP request is asking to run scanner
                 // else if (ui == "false" && scan == "true")
@@ -176,41 +197,41 @@ namespace ScannerApp
                 //     response.OutputStream.Close();
                 // }
                 // HTTP request is asking to run scanner and then return a PDF document
-            //  if (ui == "false" && scan == "true" && document == "true")
-            //     {
-            //         Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-            //         // Run batch script to open it minimized
-            //         Process.Start(new ProcessStartInfo
-            //         {
-            //             FileName = "cmd.exe",
-            //             Arguments = "/c cd commands && start.bat",
-            //             WindowStyle = ProcessWindowStyle.Minimized
-            //         });
+                //  if (ui == "false" && scan == "true" && document == "true")
+                //     {
+                //         Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                //         // Run batch script to open it minimized
+                //         Process.Start(new ProcessStartInfo
+                //         {
+                //             FileName = "cmd.exe",
+                //             Arguments = "/c cd commands && start.bat",
+                //             WindowStyle = ProcessWindowStyle.Minimized
+                //         });
 
-            //         // Wait for the scanner to finish before sending the PDF
-            //         // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
-            //         Task.Delay(TimeSpan.FromSeconds(5)).Wait();
+                //         // Wait for the scanner to finish before sending the PDF
+                //         // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
+                //         Task.Delay(TimeSpan.FromSeconds(5)).Wait();
 
-            //         try
-            //         {
-            //             // Send the Output.pdf file from "/Output" folder
-            //             byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
-            //             response.ContentType = "application/pdf";
-            //             response.StatusCode = 200;
-            //             response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-            //             response.OutputStream.Close();
-            //         }
-            //         catch (Exception ex)
-            //         {
-            //             Console.Error.WriteLine(ex.Message);
-            //             response.StatusCode = 202;
-            //             response.StatusDescription = "Process was interrupted, please try again";
-            //             response.OutputStream.Close();
-            //         }
-            //     }
-            // }
-            
-            
+                //         try
+                //         {
+                //             // Send the Output.pdf file from "/Output" folder
+                //             byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
+                //             response.ContentType = "application/pdf";
+                //             response.StatusCode = 200;
+                //             response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
+                //             response.OutputStream.Close();
+                //         }
+                //         catch (Exception ex)
+                //         {
+                //             Console.Error.WriteLine(ex.Message);
+                //             response.StatusCode = 202;
+                //             response.StatusDescription = "Process was interrupted, please try again";
+                //             response.OutputStream.Close();
+                //         }
+                //     }
+                // }
+                
+            }
         }
     }
 }
