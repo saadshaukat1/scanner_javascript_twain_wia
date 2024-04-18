@@ -89,18 +89,37 @@ namespace ScannerApp
                 if (ui == "false" && scan == "true" && document == "true")
                 {
                     Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+
                     // Run batch script to open it minimized
-                    Process.Start(new ProcessStartInfo
+                    Process process = new Process
                     {
-                        FileName = "cmd.exe",
-                        Arguments = "/c cd commands && start.bat",
-                        WindowStyle = ProcessWindowStyle.Minimized
-                    });
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "cmd.exe",
+                            Arguments = "/c cd commands && start.bat",
+                            WindowStyle = ProcessWindowStyle.Minimized
+                        }
+                    };
+
+                    process.Start();
+
+                    // Wait for the process to exit
+                    process.WaitForExit();
+
+                    // Check the exit code
+                    if (process.ExitCode == 0)
+                    {
+                        Console.WriteLine("Batch file ran successfully.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Batch file did not run successfully.");
+                        // Handle the error
+                    }
 
                     // Wait for the scanner to finish before sending the PDF
                     // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
                     Task.Delay(TimeSpan.FromSeconds(7)).Wait();
-
                     try
                     {
                         // Send the Output.pdf file from "/Output" folder
