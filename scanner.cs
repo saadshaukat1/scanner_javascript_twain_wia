@@ -110,6 +110,7 @@ namespace ScannerApp
                     if (process.ExitCode == 0)
                     {
                         Console.WriteLine("Batch file ran successfully.");
+                         Task.Delay(TimeSpan.FromSeconds(7)).Wait();
                     }
                     else
                     {
@@ -119,7 +120,7 @@ namespace ScannerApp
 
                     // Wait for the scanner to finish before sending the PDF
                     // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
-                    Task.Delay(TimeSpan.FromSeconds(7)).Wait();
+                   
                     try
                     {
                         // Send the Output.pdf file from "/Output" folder
