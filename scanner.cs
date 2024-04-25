@@ -13,238 +13,152 @@ namespace ScannerApp
         private static bool isSettingsUIOpen = false;
         static void Main(string[] args)
         {
-            int PORT = 3031;
-            HttpListener listener = new HttpListener();
-            listener.Prefixes.Add($"http://localhost:{PORT}/");
-            listener.Start();
-            Console.WriteLine($"Running on Port: {PORT}");
-
-            while (true)
+            if (args.Length == 0)
             {
-                HttpListenerContext context = listener.GetContext();
-                HttpListenerRequest request = context.Request;
-                HttpListenerResponse response = context.Response;
-
-                // Permission to access and fetch files from local machine
-                response.Headers.Add("Access-Control-Allow-Origin", "*");
-                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
-                response.Headers.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-access-token");
-                response.Headers.Add("Access-Control-Allow-Credentials", "true");
-
-                // HTTP Queries ex. "localhost:3031/?scan=true"
-                string ui = request.QueryString["ui"];
-                string document = request.QueryString["document"];
-                string image = request.QueryString["image"];
-                string scan = request.QueryString["scan"];
-
-                // HTTP request is asking for a image
-                // if (request.ContentType == "image/jpeg")
-                // {
-                //     // Get a list of the file names in "/Output" folder
-                //     string[] fileNames = Directory.GetFiles(Path.Combine(Directory.GetCurrentDirectory(), "Output"), "*.jpg");
-                //     if (fileNames.Length > 0)
-                //     {
-                //         try
-                //         {
-                //             // Send the first jpg file in "/Output" folder
-                //             byte[] fileBytes = File.ReadAllBytes(fileNames[0]);
-                //             response.ContentType = "image/jpeg";
-                //             response.StatusCode = 200;
-                //             response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-                //             response.OutputStream.Close();
-                //         }
-                //         catch (Exception ex)
-                //         {
-                //             Console.Error.WriteLine(ex.Message);
-                //             response.StatusCode = 202;
-                //             response.StatusDescription = "Process was interrupted, please try again";
-                //             response.OutputStream.Close();
-                //         }
-                //     }
-                //     else
-                //     {
-                //         response.StatusCode = 404;
-                //         response.StatusDescription = "No image files found";
-                //         response.OutputStream.Close();
-                //     }
-                // }
-                // HTTP request is asking for a pdf file
-                // else if (request.ContentType == "application/pdf" || document == "true")
-                // {
-                //     try
-                //     {
-                //         // Send the Output.pdf file from "/Output" folder
-                //         byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
-                //         response.ContentType = "application/pdf";
-                //         response.StatusCode = 200;
-                //         response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-                //         response.OutputStream.Close();
-                //     }
-                //     catch (Exception ex)
-                //     {
-                //         Console.Error.WriteLine(ex.Message);
-                //         response.StatusCode = 202;
-                //         response.StatusDescription = "Process was interrupted, please try again";
-                //         response.OutputStream.Close();
-                //     }
-                // }
-                if (ui == "false" && scan == "true" && document == "true")
+                ProcessStartInfo psi = new ProcessStartInfo
                 {
-                    Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                    FileName = Process.GetCurrentProcess().MainModule.FileName,
+                    Arguments = "minimized",
+                    WindowStyle = ProcessWindowStyle.Minimized
 
-                    string outputDir = "../Output";
-                    if (!Directory.Exists(outputDir))
+                };
+                Process.Start(psi);
+            }
+            else if(args[0] == "minimized")
+            {
+                int PORT = 3031;
+                HttpListener listener = new HttpListener();
+                listener.Prefixes.Add($"http://localhost:{PORT}/");
+                listener.Start();
+                Console.WriteLine($"Running on Port: {PORT}");
+
+                while (true)
+                {
+                    HttpListenerContext context = listener.GetContext();
+                    HttpListenerRequest request = context.Request;
+                    HttpListenerResponse response = context.Response;
+
+                    // Permission to access and fetch files from local machine
+                    response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
+                    response.Headers.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-access-token");
+                    response.Headers.Add("Access-Control-Allow-Credentials", "true");
+
+                    // HTTP Queries ex. "localhost:3031/?scan=true"
+                    string ui = request.QueryString["ui"];
+                    string document = request.QueryString["document"];
+                    string image = request.QueryString["image"];
+                    string scan = request.QueryString["scan"];
+
+                    if (ui == "false" && scan == "true" && document == "true")
                     {
-                        Directory.Delete(outputDir, true);
-                    }
-                    Directory.CreateDirectory(outputDir);
-                    // Run batch script to open it minimized
-                    if (!isProcessRunning)
-                    {
-                        isProcessRunning = true;
+                        Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
 
-                        Process process = new Process
+                        string outputDir = "../Output";
+                        if (!Directory.Exists(outputDir))
                         {
-                            StartInfo = new ProcessStartInfo
-                            {
-                                FileName = "../NAPS2.Console.exe",
-                                Arguments = "-o ../Output/output.pdf --progress",
-                                RedirectStandardOutput = true,
-                                UseShellExecute = false,
-                                CreateNoWindow = true,
-                            }
-                        };
-
-                        process.Start();
-
-                        // Wait for the process to exit
-                        process.WaitForExit();
-
-                        // Check the exit code
-                        if (process.ExitCode == 0)
-                        {
-                            Console.WriteLine("Command ran successfully.");
-                            Task.Delay(TimeSpan.FromSeconds(10)).Wait();
-                            try
-                            {
-                                // Send the Output.pdf file from "/Output" folder
-                                byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
-                                response.ContentType = "application/pdf";
-                                response.StatusCode = 200;
-                                response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-                                response.OutputStream.Close();
-                                isProcessRunning = false;
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.Error.WriteLine(ex.Message);
-                                response.StatusCode = 202;
-                                response.StatusDescription = "Process was interrupted, please try again";
-                                response.OutputStream.Close();
-                                isProcessRunning = false;
-                            }
+                            Directory.Delete(outputDir, true);
                         }
+                        Directory.CreateDirectory(outputDir);
+                        // Run batch script to open it minimized
+                        if (!isProcessRunning)
+                        {
+                            isProcessRunning = true;
+
+                            Process process = new Process
+                            {
+                                StartInfo = new ProcessStartInfo
+                                {
+                                    FileName = "../NAPS2.Console.exe",
+                                    Arguments = "-o ../Output/output.pdf --progress",
+                                    RedirectStandardOutput = true,
+                                    UseShellExecute = false,
+                                    CreateNoWindow = true,
+                                }
+                            };
+
+                            process.Start();
+
+                            // Wait for the process to exit
+                            process.WaitForExit();
+
+                            // Check the exit code
+                            if (process.ExitCode == 0)
+                            {
+                                Console.WriteLine("Command ran successfully.");
+                                Task.Delay(TimeSpan.FromSeconds(10)).Wait();
+                                try
+                                {
+                                    // Send the Output.pdf file from "/Output" folder
+                                    byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
+                                    response.ContentType = "application/pdf";
+                                    response.StatusCode = 200;
+                                    response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
+                                    response.OutputStream.Close();
+                                    isProcessRunning = false;
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.Error.WriteLine(ex.Message);
+                                    response.StatusCode = 202;
+                                    response.StatusDescription = "Process was interrupted, please try again";
+                                    response.OutputStream.Close();
+                                    isProcessRunning = false;
+                                }
+                            }
+
+                            else
+                            {
+                                Console.WriteLine("Batch file did not run successfully.");
+                                // Handle the error
+                            }
+
+                        }
+
 
                         else
                         {
-                            Console.WriteLine("Batch file did not run successfully.");
-                            // Handle the error
+                            Console.WriteLine("A process is already running.");
                         }
 
+                        // Wait for the scanner to finish before sending the PDF
+                        // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
+
+
+                        // HTTP request is asking to open the Scanner Settings UI
                     }
-
-            
-                else
-                {
-                    Console.WriteLine("A process is already running.");
-                }
-
-                    // Wait for the scanner to finish before sending the PDF
-                    // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
-
-
-                    // HTTP request is asking to open the Scanner Settings UI
-                }
-                else if (ui == "true")
-                {
-                    if (!isSettingsUIOpen)
+                    else if (ui == "true")
                     {
-                        isSettingsUIOpen = true;
-
-                        Console.WriteLine($"Scanner UI (Options)- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-                        // Run batch script to open it minimized
-                        Process.Start(new ProcessStartInfo
+                        if (!isSettingsUIOpen)
                         {
-                            FileName = "cmd.exe",
-                            Arguments = "/c cd commands && settings.bat",
-                            WindowStyle = ProcessWindowStyle.Minimized
-                        });
-                        response.StatusCode = 204;
+                            isSettingsUIOpen = true;
+
+                            Console.WriteLine($"Scanner UI (Options)- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                            // Run batch script to open it minimized
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = "cmd.exe",
+                                Arguments = "/c cd commands && settings.bat",
+                                WindowStyle = ProcessWindowStyle.Minimized
+                            });
+                            response.StatusCode = 204;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Settings UI is already open.");
+                            response.StatusCode = 409; // Conflict
+                        }
+                        response.OutputStream.Close();
                     }
+
                     else
                     {
-                        Console.WriteLine("Settings UI is already open.");
-                        response.StatusCode = 409; // Conflict
+                        response.StatusCode = 404;
+                        Console.WriteLine($"Invalid Request -  {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                        response.OutputStream.Close();
                     }
-                    response.OutputStream.Close();
+                
                 }
-
-                else
-                {
-                    response.StatusCode = 404;
-                    Console.WriteLine($"Invalid Request -  {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-                    response.OutputStream.Close();
-                }
-
-                // // HTTP request is asking to run scanner
-                // else if (ui == "false" && scan == "true")
-                // {
-                //     Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-                //     // Run batch script to open it minimized
-                //     Process.Start(new ProcessStartInfo
-                //     {
-                //         FileName = "cmd.exe",
-                //         Arguments = "/c cd commands && start.bat",
-                //         WindowStyle = ProcessWindowStyle.Minimized
-                //     });
-                //     response.StatusCode = 200;
-                //     response.OutputStream.Close();
-                // }
-                // HTTP request is asking to run scanner and then return a PDF document
-                //  if (ui == "false" && scan == "true" && document == "true")
-                //     {
-                //         Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-                //         // Run batch script to open it minimized
-                //         Process.Start(new ProcessStartInfo
-                //         {
-                //             FileName = "cmd.exe",
-                //             Arguments = "/c cd commands && start.bat",
-                //             WindowStyle = ProcessWindowStyle.Minimized
-                //         });
-
-                //         // Wait for the scanner to finish before sending the PDF
-                //         // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
-                //         Task.Delay(TimeSpan.FromSeconds(5)).Wait();
-
-                //         try
-                //         {
-                //             // Send the Output.pdf file from "/Output" folder
-                //             byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
-                //             response.ContentType = "application/pdf";
-                //             response.StatusCode = 200;
-                //             response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-                //             response.OutputStream.Close();
-                //         }
-                //         catch (Exception ex)
-                //         {
-                //             Console.Error.WriteLine(ex.Message);
-                //             response.StatusCode = 202;
-                //             response.StatusDescription = "Process was interrupted, please try again";
-                //             response.OutputStream.Close();
-                //         }
-                //     }
-                // }
-
             }
         }
     }
