@@ -69,9 +69,9 @@ namespace ScannerApp
                             {
                                 StartInfo = new ProcessStartInfo
                                 {
-                                    FileName = "../NAPS2.Console.exe",
-                                    Arguments = "-o ../Output/output.pdf --progress",
-                                    RedirectStandardOutput = true,
+                                    FileName = "/NAPS2.Console.exe",
+                                    Arguments = "-o /Output/output.pdf --progress",
+                                    RedirectStandardOutput = true,  
                                     UseShellExecute = false,
                                     CreateNoWindow = true,
                                 }
