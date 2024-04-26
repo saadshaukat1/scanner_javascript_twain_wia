@@ -15,31 +15,31 @@ namespace ScannerApp
         static void Main(string[] args)
         {
             int PORT = 3031;
-
+        
             using (HttpListener listener = new HttpListener())
             {
                 listener.Prefixes.Add($"http://localhost:{PORT}/");
                 listener.Start();
                 Console.WriteLine($"Running on Port: {PORT}");
-
+        
                 while (true)
                 {
                     HttpListenerContext context = listener.GetContext();
                     HttpListenerRequest request = context.Request;
                     HttpListenerResponse response = context.Response;
-
+        
                     SetResponseHeaders(response);
-
+        
                     string ui = request.QueryString["ui"];
                     string document = request.QueryString["document"];
                     string image = request.QueryString["image"];
                     string scan = request.QueryString["scan"];
-
-                    if (ui == "false" && scan == "true" && document == "true")
+        
+                    if (ui == "false" && scan == "true" && document == "true" && !isProcessRunning)
                     {
                         HandleScanRequest(response);
                     }
-                    else if (ui == "true")
+                    else if (ui == "true" && !isSettingsUIOpen)
                     {
                         HandleUIRequest(response);
                     }
@@ -47,12 +47,11 @@ namespace ScannerApp
                     {
                         HandleInvalidRequest(response);
                     }
-
+        
                     CloseOutputStream(response);
                 }
             }
         }
-
         private static void SetResponseHeaders(HttpListenerResponse response)
         {
             response.Headers.Add("Access-Control-Allow-Origin", "*");
@@ -70,115 +69,98 @@ namespace ScannerApp
         {
             Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
 
-           
-
-            // Run batch script to open it minimized
-            if (!isProcessRunning)
+            if (isProcessRunning)
             {
-                isProcessRunning = true;
-                 string outputDir = "Output";
+                Console.WriteLine("A process is already running.");
+                return;
+            }
+
+            isProcessRunning = true;
+            PrepareOutputDirectory();
+
+            try
+            {
+                RunProcess();
+
+                Console.WriteLine("Command ran successfully.");
+                Task.Delay(TimeSpan.FromSeconds(10)).Wait();
+
+                SendPdf(response);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                response.StatusCode = 202;
+                response.StatusDescription = "Process was interrupted, please try again";
+                response.OutputStream.Close();
+            }
+            finally
+            {
+                isProcessRunning = false;
+            }
+        }
+
+        private static void PrepareOutputDirectory()
+        {
+            string outputDir = "Output";
             if (Directory.Exists(outputDir))
             {
                 Directory.Delete(outputDir, true);
             }
             Directory.CreateDirectory(outputDir);
+        }
 
-                try
-                {
-                    Process process = new Process
-                    {
-                        StartInfo = new ProcessStartInfo
-                        {
-                        //     FileName = "NAPS2.Console.exe",
-                        //     Arguments = "-o /Output/output.pdf --progress",
-                        //     RedirectStandardOutput = true,
-                        //     UseShellExecute = false,
-                        //     CreateNoWindow = true,
-                        FileName = "cmd.exe",
-                        Arguments = "/c cd commands && start.bat",
-                        WindowStyle = ProcessWindowStyle.Minimized,
-
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,   
-                        UseShellExecute = false,
-                        }
-                    };
-
-                    process.Start();
-
-                    // Wait for the process to exit
-                    process.WaitForExit();
-
-                    //display exit code
-                    string errorMessage = process.StandardError.ReadToEnd();
-                    if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        Console.WriteLine($"Error: {errorMessage}");
-                    }
-
-                    // Check the exit code
-                    if (process.ExitCode == 0)
-                    {
-                        Console.WriteLine("Command ran successfully.");
-                        Task.Delay(TimeSpan.FromSeconds(10)).Wait();
-                        try
-                        {
-                            Console.WriteLine($"Sending PDF- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-
-                            // Define the file path
-                            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf");
-                            
-                            // Check if the file exists
-                            if (File.Exists(filePath))
-                            {
-                                // Read the file into a memory stream
-                                using (MemoryStream memoryStream = new MemoryStream(File.ReadAllBytes(filePath)))
-                                {
-                                    // Set the response content type and status code
-                                    response.ContentType = "application/pdf";
-                                    response.StatusCode = 200;
-                            
-                                    // Write the memory stream to the response output stream
-                                    memoryStream.WriteTo(response.OutputStream);
-                                    response.OutputStream.Close();
-                                    Console.WriteLine($"PDF sent successfully- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine($"File not found: {filePath}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.Error.WriteLine(ex.Message);
-                            response.StatusCode = 202;
-                            response.StatusDescription = "Process was interrupted, please try again";
-                            response.OutputStream.Close();
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception("Process exited with non-zero exit code.");
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(ex.Message);
-                }
-                finally
-                {
-                    isProcessRunning = false;
-                
-                }
-            }
-            else
+        private static void RunProcess()
+        {
+            Process process = new Process
             {
-                Console.WriteLine("A process is already running.");
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = "/c cd commands && start.bat",
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                }
+            };
+
+            process.Start();
+            process.WaitForExit();
+
+            string errorMessage = process.StandardError.ReadToEnd();
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                Console.WriteLine($"Error: {errorMessage}");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception("Process exited with non-zero exit code.");
             }
         }
 
+        private static void SendPdf(HttpListenerResponse response)
+        {
+            Console.WriteLine($"Sending PDF- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf");
+            if (!File.Exists(filePath))
+            {
+                Console.WriteLine($"File not found: {filePath}");
+                return;
+            }
+
+            using (MemoryStream memoryStream = new MemoryStream(File.ReadAllBytes(filePath)))
+            {
+                response.ContentType = "application/pdf";
+                response.StatusCode = 200;
+                memoryStream.WriteTo(response.OutputStream);
+                response.OutputStream.Close();
+
+                Console.WriteLine($"PDF sent successfully- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+            }
+        }
         private static void HandleUIRequest(HttpListenerResponse response)
         {
             if (!isSettingsUIOpen)
