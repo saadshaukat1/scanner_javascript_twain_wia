@@ -13,18 +13,18 @@ namespace ScannerApp
         private static bool isSettingsUIOpen = false;
         static void Main(string[] args)
         {
-            if (args.Length == 0)
-            {
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = Process.GetCurrentProcess().MainModule.FileName,
-                    Arguments = "minimized",
-                    WindowStyle = ProcessWindowStyle.Minimized
+            // if (args.Length == 0)
+            // {
+            //     ProcessStartInfo psi = new ProcessStartInfo
+            //     {
+            //         FileName = Process.GetCurrentProcess().MainModule.FileName,
+            //         Arguments = "minimized",
+            //         WindowStyle = ProcessWindowStyle.Minimized
 
-                };
-                Process.Start(psi);
-            }
-            else if(args[0] == "minimized")
+            //     };
+            //     Process.Start(psi);
+            // }
+            // else if(args[0] == "minimized")
             {
                 int PORT = 3031;
                 HttpListener listener = new HttpListener();
@@ -54,8 +54,8 @@ namespace ScannerApp
                     {
                         Console.WriteLine($"Running Scanner - {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
 
-                        string outputDir = "../Output";
-                        if (!Directory.Exists(outputDir))
+                        string outputDir = "Output";
+                        if (Directory.Exists(outputDir))
                         {
                             Directory.Delete(outputDir, true);
                         }
@@ -64,63 +64,75 @@ namespace ScannerApp
                         if (!isProcessRunning)
                         {
                             isProcessRunning = true;
-
-                            Process process = new Process
+                        
+                            try
                             {
-                                StartInfo = new ProcessStartInfo
+                                Process process = new Process
                                 {
-                                    FileName = "/NAPS2.Console.exe",
-                                    Arguments = "-o /Output/output.pdf --progress",
-                                    RedirectStandardOutput = true,  
-                                    UseShellExecute = false,
-                                    CreateNoWindow = true,
+                                    StartInfo = new ProcessStartInfo
+                                    {
+                                        FileName = "NAPS2.Console.exe",
+                                        Arguments = "-o /Output/output.pdf --progress",
+                                        RedirectStandardOutput = true,
+                                        UseShellExecute = false,
+                                        CreateNoWindow = false,
+                                    }
+                                };
+                        
+                                process.Start();
+                        
+                                // Wait for the process to exit
+                                process.WaitForExit();
+                        
+                                //display exit code
+                                Console.WriteLine($"Exit code: {process.ExitCode}");
+                        
+                                // Check the exit code
+                                if (process.ExitCode == 0)
+                                {
+                                    Console.WriteLine("Command ran successfully.");
+                                    Task.Delay(TimeSpan.FromSeconds(10)).Wait();
+                                    try
+                                    {
+                                        Console.WriteLine($"Reading PDF- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                                        // Send the Output.pdf file from "/Output" folder
+                                        byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
+                                        response.ContentType = "application/pdf";
+                                        response.StatusCode = 200;
+                                        response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
+                                        response.OutputStream.Close();
+                                        //isProcessRunning = false;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.Error.WriteLine(ex.Message);
+                                        response.StatusCode = 202;
+                                        response.StatusDescription = "Process was interrupted, please try again";
+                                        response.OutputStream.Close();
+                                        //isProcessRunning = false;
+                                    }
                                 }
-                            };
-
-                            process.Start();
-
-                            // Wait for the process to exit
-                            process.WaitForExit();
-
-                            // Check the exit code
-                            if (process.ExitCode == 0)
-                            {
-                                Console.WriteLine("Command ran successfully.");
-                                Task.Delay(TimeSpan.FromSeconds(10)).Wait();
-                                try
+                                else
                                 {
-                                    // Send the Output.pdf file from "/Output" folder
-                                    byte[] fileBytes = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf"));
-                                    response.ContentType = "application/pdf";
-                                    response.StatusCode = 200;
-                                    response.OutputStream.Write(fileBytes, 0, fileBytes.Length);
-                                    response.OutputStream.Close();
-                                    isProcessRunning = false;
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.Error.WriteLine(ex.Message);
-                                    response.StatusCode = 202;
-                                    response.StatusDescription = "Process was interrupted, please try again";
-                                    response.OutputStream.Close();
-                                    isProcessRunning = false;
+                                  throw new Exception("Process exited with non-zero exit code.");
                                 }
                             }
-
-                            else
+                            catch (Exception ex)
                             {
-                                Console.WriteLine("Batch file did not run successfully.");
-                                // Handle the error
+                                Console.Error.WriteLine(ex.Message);
+                                response.StatusCode = 202;
+                                response.StatusDescription = "Process was interrupted, please try again";
+                                response.OutputStream.Close();
                             }
-
+                            finally
+                            {
+                                isProcessRunning = false;
+                            }
                         }
-
-
                         else
                         {
                             Console.WriteLine("A process is already running.");
                         }
-
                         // Wait for the scanner to finish before sending the PDF
                         // This is a simplification, in a real-world scenario you would need to implement a more robust mechanism
 
@@ -157,7 +169,7 @@ namespace ScannerApp
                         Console.WriteLine($"Invalid Request -  {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
                         response.OutputStream.Close();
                     }
-                
+
                 }
             }
         }

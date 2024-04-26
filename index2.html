@@ -37,7 +37,7 @@
 
         // Function to run the scanner
         function runScanner() {
-            fetch('http://localhost:3031/?ui=false&scan=true', {
+            fetch('http://localhost:3031/?ui=false&scan=true&document=true', {
                 method: 'GET'
             })
             .then(response => {
