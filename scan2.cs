@@ -80,12 +80,30 @@ namespace ScannerApp
 
             try
             {
-                RunProcess();
+                bool isProcessSuccessful = RunProcess();
+            
+                if (isProcessSuccessful)
+                {
+                    Console.WriteLine("Command ran successfully.");
+                    Task.Delay(TimeSpan.FromSeconds(10)).Wait();
+                     string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf");
+                    if (File.Exists(filePath))
+                    {
+                        Console.WriteLine($"Reading PDF- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
+                        SendPdf(response);
+                    }
+                    else
+                    {
+                        Console.WriteLine("File not found.");
+                    }
 
-                Console.WriteLine("Command ran successfully.");
-                Task.Delay(TimeSpan.FromSeconds(10)).Wait();
-
-                SendPdf(response);
+                
+                    //SendPdf(response);
+                }
+                else
+                {
+                    Console.WriteLine("Command failed. Not sending PDF.");
+                }
             }
             catch (Exception ex)
             {
@@ -110,7 +128,7 @@ namespace ScannerApp
             Directory.CreateDirectory(outputDir);
         }
 
-        private static void RunProcess()
+        private static bool RunProcess()
         {
             Process process = new Process
             {
@@ -124,32 +142,35 @@ namespace ScannerApp
                     UseShellExecute = false,
                 }
             };
-
+        
             process.Start();
             process.WaitForExit();
-
+        
             string errorMessage = process.StandardError.ReadToEnd();
             if (!string.IsNullOrEmpty(errorMessage))
             {
                 Console.WriteLine($"Error: {errorMessage}");
+                return false;
             }
-
+        
             if (process.ExitCode != 0)
             {
-                throw new Exception("Process exited with non-zero exit code.");
+                Console.WriteLine("Process exited with non-zero exit code.");
+                return false;
             }
+        
+            return true;
         }
-
         private static void SendPdf(HttpListenerResponse response)
         {
             Console.WriteLine($"Sending PDF- {DateTime.Now.ToShortTimeString()} : {DateTime.Now.ToShortDateString()}");
 
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf");
-            if (!File.Exists(filePath))
-            {
-                Console.WriteLine($"File not found: {filePath}");
-                return;
-            }
+             string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Output", "output.pdf");
+            // if (!File.Exists(filePath))
+            // {
+            //     Console.WriteLine($"File not found: {filePath}");
+            //     return ;
+            // }
 
             using (MemoryStream memoryStream = new MemoryStream(File.ReadAllBytes(filePath)))
             {
