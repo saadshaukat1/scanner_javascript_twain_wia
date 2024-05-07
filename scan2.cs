@@ -196,6 +196,7 @@ namespace ScannerApp
                     WindowStyle = ProcessWindowStyle.Maximized
                 });
                 response.StatusCode = 204;
+                isSettingsUIOpen = false;
             }
             else
             {
